@@ -1,60 +1,23 @@
-const capturing = new Set()
-const updating = new Set()
-let isCapturing = false
-const isPrimitive = x => Object(x) !== x
-const toJSON = x => (x.toJSON === undefined ? x : x.toJSON())
-const update = node => {
-  if (updating.has(node)) updating.delete(node)
-  updating.add(node)
-  node.dependents.forEach(update)
-}
+const needF = () => new TypeError("A function argument is required");
 
-const state = (compute, ds) => {
-  var deps = ds.concat();
-  if (typeof compute !== 'function') {
-    throw new Error('state requires a function argument. Use state.of for other values');
+const state = f => ds => {
+
+  if (typeof f !== 'function') {
+    throw needF();
   }
 
-  const recompute = node => {
-    node.value = node.compute.apply(null, ds);
-    node.listeners.forEach(fn => fn(node.value))
-  }
-  const node = x => {
-    if (isCapturing) capturing.add(node)
-    if (x === undefined) {
-      throw new Error('Argument required, none given');
-    }
-    node.compute = () => x
-    if (typeof x === 'function') {
-      node.compute = x
-      isCapturing = true
-      capturing.clear()
-      recompute(node)
-      isCapturing = false
-    } else {
-      recompute(node)
-    }
-    updating.clear()
-    node.dependents.forEach(update)
-    updating.forEach(recompute)
+  return {
+    map: g => gdeps => state(g(f.apply(null, ds), gdeps)),
 
-    return node.value
-  }
+    propagate: () => return [this.force()].concat(ds.map(d => d.force())),
 
-  node.listeners = new Set()
-  node.dependents = new Set()
-  deps.forEach(dep => dep.dependents.add(node));
+    force: () => f.apply(null, ds)
+  };
 
-  node.on = fn => {
-    node.listeners.add(fn)
-    return () => node.listeners.delete(fn)
-  }
-  node.toJSON = () =>
-    (isPrimitive(node.value) ? node.value : toJSON(node.value))
-  node(compute)
-  
-  return node
-}
-state.of = x => state(() => x, []);
+};
+
+state.of = x => state(() => x)([]);
+state.empty = () => state(x => x)([]),
+
 
 module.exports = state
