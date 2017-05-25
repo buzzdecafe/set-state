@@ -7,11 +7,11 @@ const state = f => ds => {
   }
 
   return {
-    map: g => gdeps => state(g(f.apply(null, ds.map(d => d.force())), gdeps)),
+    map: g => gdeps => state(g(f.apply(null, ds.map(d => d.force()))))(gdeps),
 
     propagate: () => return [this.force()].concat(ds.map(d => d.force())),
 
-    force: () => f.apply(null, ds.map(d => d.force))
+    force: () => f.apply(null, ds.map(d => d.force()))
   };
 
 };
